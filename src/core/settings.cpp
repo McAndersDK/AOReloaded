@@ -54,6 +54,7 @@ static SettingDef g_settings[] = {
     { "AOR_TBarH",     SettingType::Int,  10,      10,      8,  128 },
     { "AOR_TBarPrev",  SettingType::Bool,  0,       0,      0,    1 },
     { "AOR_BagMove",   SettingType::Bool,  1,       1,      0,    1 },
+    { "AOR_AltSelect", SettingType::Bool,  1,       1,      0,    1 },
 };
 
 static constexpr int kSettingCount = sizeof(g_settings) / sizeof(g_settings[0]);
@@ -368,6 +369,8 @@ static const char kAorXmlBlock[] =
     " layout_borders=\"Rect(10,0,0,0)\" opt_type=\"variant\" opt_variable=\"AOR_NumpadFix\"/>\n"
     "        <OptionCheckBox label=\"Ctrl+click moves inventory items into the last opened backpack\""
     " layout_borders=\"Rect(10,0,0,0)\" opt_type=\"variant\" opt_variable=\"AOR_BagMove\"/>\n"
+    "        <OptionCheckBox label=\"Alt+click selects several items; moving one moves them all\""
+    " layout_borders=\"Rect(10,0,0,0)\" opt_type=\"variant\" opt_variable=\"AOR_AltSelect\"/>\n"
     "\n"
     "        <TextView value=\"Debug\" layout_borders=\"Rect(0,10,0,3)\" />\n"
     "        <OptionCheckBox label=\"Enable debug logging (AOReloaded.log, requires restart)\""
