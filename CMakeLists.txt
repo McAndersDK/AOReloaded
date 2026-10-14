@@ -54,6 +54,34 @@ set_target_properties(AOReloaded PROPERTIES
     SUFFIX ".dll"
 )
 
+# ── The AOPlugins plugin: aoreloaded.dll ────────────────────────────────────
+# The same features (src/hooks/) on AOPlugins instead of the version.dll's own core: src/plugin/plugin_core.cpp
+# implements logging.h, hook_engine.h and settings.h on AOPlugins' host table. Without the renderer
+# settings, frame rate cap and view distance (ao-vk's plugin has those).
+add_library(aoreloaded SHARED
+    src/plugin/plugin_main.cpp
+    src/plugin/plugin_core.cpp
+    src/core/laa_patch.cpp
+    src/ao/game_api.cpp
+    src/hooks/input_handler.cpp
+    src/hooks/camera_hook.cpp
+    src/hooks/numpad_fix.cpp
+    src/hooks/timer_bar_drag.cpp
+    src/hooks/bag_move.cpp
+    src/hooks/alt_select.cpp
+    src/hooks/inventory_pins.cpp
+    src/hooks/skill_favorites.cpp
+)
+set_target_properties(aoreloaded PROPERTIES PREFIX "")
+target_include_directories(aoreloaded PRIVATE src)
+target_compile_definitions(aoreloaded PRIVATE
+    WIN32_LEAN_AND_MEAN
+    NOMINMAX
+    _CRT_SECURE_NO_WARNINGS
+    UNICODE
+    _UNICODE
+)
+
 target_include_directories(AOReloaded PRIVATE src)
 target_compile_definitions(AOReloaded PRIVATE
     WIN32_LEAN_AND_MEAN

@@ -589,20 +589,34 @@ static bool ReadFile(const char* path, std::string& out) {
     return ok;
 }
 
-static void PatchSingleSkillsXml(const char* path) {
-    std::string xml;
-    if (!ReadFile(path, xml)) return;  // this GUI doesn't override Skills.xml
-    if (xml.find("\"favorites_view\"") != std::string::npos) return;
+// Insert the favorites button and views. Returns false if the layout is
+// unknown or already carries them.
+static bool AddFavorites(std::string& xml) {
+    if (xml.find("\"favorites_view\"") != std::string::npos) return false;
 
     const size_t button = xml.find(kButtonAnchor);
     const size_t group  = xml.find(kGroupAnchor);
     const size_t groupEnd = group == std::string::npos ? group : xml.find("</View>", group);
     if (button == std::string::npos || groupEnd == std::string::npos || groupEnd < button) {
-        Log("[skillfav] %s: unknown layout, not patched", path);
-        return;
+        Log("[skillfav] Skills.xml: unknown layout, not patched");
+        return false;
     }
     xml.insert(groupEnd + std::strlen("</View>"), kGroupXml);  // later one first
     xml.insert(button, kButtonXml);
+    return true;
+}
+
+bool PatchSkillsXmlText(const std::string& in, std::string& out) {
+    std::string work = in;
+    if (!AddFavorites(work)) return false;
+    out.swap(work);
+    return true;
+}
+
+static void PatchSingleSkillsXml(const char* path) {
+    std::string xml;
+    if (!ReadFile(path, xml)) return;  // this GUI doesn't override Skills.xml
+    if (!AddFavorites(xml)) return;
 
     HANDLE file = CreateFileA(path, GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS,
                               FILE_ATTRIBUTE_NORMAL, nullptr);
@@ -618,6 +632,40 @@ static void PatchSingleSkillsXml(const char* path) {
 
 void PatchSkillsXml() {
     ForEachGuiFile("Views\\Skills.xml", PatchSingleSkillsXml);
+}
+
+// Remove the exact fragments PatchSkillsXml inserted, to restore the stock file.
+static bool StripFavorites(std::string& xml) {
+    bool removed = false;
+    for (const char* fragment : {kButtonXml, kGroupXml}) {
+        const size_t len = std::strlen(fragment);
+        size_t at = 0;
+        while ((at = xml.find(fragment, at)) != std::string::npos) {
+            xml.erase(at, len);
+            removed = true;
+        }
+    }
+    return removed;
+}
+
+static void CleanSkillsXmlFile(const char* path) {
+    std::string xml;
+    if (!ReadFile(path, xml) || !StripFavorites(xml)) return;
+
+    HANDLE file = CreateFileA(path, GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS,
+                              FILE_ATTRIBUTE_NORMAL, nullptr);
+    if (file == INVALID_HANDLE_VALUE) {
+        Log("[skillfav] cannot restore %s (%lu)", path, GetLastError());
+        return;
+    }
+    DWORD written = 0;
+    WriteFile(file, xml.data(), static_cast<DWORD>(xml.size()), &written, nullptr);
+    CloseHandle(file);
+    Log("[skillfav] restored stock Skills.xml: %s", path);
+}
+
+void CleanSkillsXmlOnDisk() {
+    ForEachGuiFile("Views\\Skills.xml", CleanSkillsXmlFile);
 }
 
 // ── Init ───────────────────────────────────────────────────────────────

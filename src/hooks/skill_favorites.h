@@ -34,11 +34,20 @@
 // Favorites are per character, saved in AOReloadedSkills.ini next to the
 // exe. Toggled by the AOR_SkillFavs and AOR_SkillShift DValues (default on).
 
+#include <string>
+
 namespace aor {
 
 // Add the favorites views to every Skills.xml (idempotent). Call before the
 // skills window is first opened, e.g. next to PatchOptionsXml().
 void PatchSkillsXml();
+
+// The same edit on Skills.xml's text, for a host that serves the file from
+// memory (the AOPlugins plugin). Returns false if there's nothing to change.
+bool PatchSkillsXmlText(const std::string& in, std::string& out);
+
+// Strip what PatchSkillsXml wrote into the files on disk, restoring them.
+void CleanSkillsXmlOnDisk();
 
 // Install the hooks. GUI.dll is a static import of the exe.
 // Returns false (and installs nothing) if the client doesn't match.
