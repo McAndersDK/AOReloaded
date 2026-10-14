@@ -122,4 +122,6 @@ The same features also build as a plugin for [AOPlugins](https://github.com/McAn
 core (logging, hooks, settings) on AOPlugins, which also serves the options tab and the Favorites group from memory;
 the feature code is shared. Settings live in `AOPlugins.ini` `[aoreloaded]` (the values in `AOReloaded.ini` are taken
 over the first time). The frame rate cap, renderer settings and view distance are in ao-vk's plugin (`ao-vk.dll`).
-`tools/test-plugin-fake-client.ps1` runs it in AOPlugins' fake client.
+`tools/test-plugin-fake-client.ps1` runs it in AOPlugins' fake client. `tools/update-client.ps1 [-Client <dir>]` builds it
+and puts it into a client's `AOPlugins` folder; `tools/package-client.ps1` makes `dist/aoreloaded-package.zip` (the
+plugin and an `install.ps1`).
