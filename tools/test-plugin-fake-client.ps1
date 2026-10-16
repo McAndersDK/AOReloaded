@@ -51,6 +51,11 @@ Check "the AOReloaded tab is served, with its settings" ((Has $xml 'label="AORel
 Check "the moved settings aren't in it" (-not (Has $xml "AOR_FpsCap") -and -not (Has $xml "AOR_ObjDist"))
 Check "the Skills.xml patch is registered (no crash in attach)" (Has $log "[init] AOReloaded ready")
 Check "features without the game's DLLs refuse cleanly" (-not ($log -match "aoreloaded: crashed"))
+$fakeExe = Join-Path $AOPlugins "tests\AnarchyOnline.exe"
+$origExe = Join-Path $dir "AnarchyOnline_orig.exe"
+Check "the LAA patch keeps the untouched exe as AnarchyOnline_orig.exe (for the launcher's check)" (
+    (Test-Path $origExe) -and ((Get-FileHash $origExe).Hash -eq (Get-FileHash $fakeExe).Hash) -and
+    ((Get-FileHash (Join-Path $dir "AnarchyOnline.exe")).Hash -ne (Get-FileHash $fakeExe).Hash))
 Write-Host ""
 Write-Host "aoreloaded's log lines:"
 $log -split "`n" | Where-Object { $_ -match "\[aoreloaded\]" } | Select-Object -First 25 | ForEach-Object { "  $_" }
