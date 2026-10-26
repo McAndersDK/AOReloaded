@@ -4,6 +4,8 @@ What changed in each AOReloaded release, newest first.
 
 ## Unreleased
 
+## 0.3.1 - 2026-10-27
+
 ### Changed
 - AOReloaded's features now come as `aoreloaded.dll`, an AOPlugins plugin, with their tab in the options window.
 
@@ -14,3 +16,4 @@ What changed in each AOReloaded release, newest first.
 
 ### Fixed
 - A crash when closing a container.
+
