@@ -6,8 +6,8 @@
 # Usage:  powershell -ExecutionPolicy Bypass -File tools\test-plugin-fake-client.ps1 [-AOPlugins <its build dir>]
 #         [-AoVkPlugin <ao-vk.dll>] [-Keep]
 param(
-    [string]$AOPlugins = "C:\projekter\AOPlugins\build\linux-release",
-    [string]$AoVkPlugin = "C:\projekter\ao-vk\build\aoplugin\ao-vk.dll",
+    [string]$AOPlugins = "C:\projekter\aorebirth-workspace\AOPlugins\build\linux-release",
+    [string]$AoVkPlugin = "C:\projekter\aorebirth-workspace\ao-vk\build\aoplugin\ao-vk.dll",
     [switch]$Keep
 )
 $ErrorActionPreference = "Stop"
