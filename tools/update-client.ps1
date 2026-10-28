@@ -1,11 +1,10 @@
-# Builds the AOPlugins plugin (aoreloaded.dll, in WSL) and puts it into the client's AOPlugins folder. It only runs
-# with AOPlugins' version.dll in the client folder; the standalone AOReloaded version.dll ignores the folder.
+# Builds the AOPlugins plugin (aoreloaded.dll, on Windows: tools\windows-build.ps1) and puts it into the client's
+# AOPlugins folder. It only runs with AOPlugins' version.dll in the client folder; the standalone AOReloaded
+# version.dll ignores the folder.
 #
 # Usage (from anywhere):  powershell -ExecutionPolicy Bypass -File tools\update-client.ps1 [-NoBuild] [-Client <dir>]
-#                         [-Distro <WSL distro>]
 param(
     [string]$Client = "C:\Users\$env:USERNAME\DownloadsPRK\client",
-    [string]$Distro = "Ubuntu-26.04",
     [switch]$NoBuild
 )
 $ErrorActionPreference = "Stop"
@@ -17,12 +16,11 @@ if (-not (Test-Path (Join-Path $Client "AnarchyOnline.exe"))) { Fail "no Anarchy
 if (Get-Process -Name "AnarchyOnline" -ErrorAction SilentlyContinue) { Fail "the game is running - close it first (its plugins are in use)" }
 
 # 1. Build.
-$plugin = Join-Path $repo "build\linux-release\aoreloaded.dll"
+$plugin = Join-Path $repo "build\windows-release\aoreloaded.dll"
 if (-not $NoBuild) {
-    $wslRepo = "/mnt/" + $repo.Substring(0, 1).ToLower() + ($repo.Substring(2) -replace '\\', '/')
-    Write-Host "update-client: building in WSL ($Distro)"
-    $script = "cd '$wslRepo' && { [ -f build/linux-release/build.ninja ] || cmake --preset linux-release >/dev/null; } && cmake --build --preset linux-release --target aoreloaded"
-    wsl -d $Distro -- bash -lc $script
+    . (Join-Path $PSScriptRoot "windows-build.ps1")
+    Write-Host "update-client: building (windows-release)"
+    Invoke-WindowsBuild $repo -Target aoreloaded
     if ($LASTEXITCODE -ne 0) { Fail "the build failed" }
 }
 if (-not (Test-Path $plugin)) { Fail "no $plugin - build first" }

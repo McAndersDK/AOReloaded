@@ -17,6 +17,16 @@
             }
         },
         {
+            "name": "windows-release",
+            "displayName": "Release (x86, clang-cl on Windows)",
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/build/windows-release",
+            "toolchainFile": "${sourceDir}/cmake/windows-clangcl.cmake",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release"
+            }
+        },
+        {
             "name": "base",
             "hidden": true,
             "generator": "Ninja",
@@ -60,6 +70,10 @@
         {
             "name": "linux-release",
             "configurePreset": "linux-release"
+        },
+        {
+            "name": "windows-release",
+            "configurePreset": "windows-release"
         },
         {
             "name": "debug",

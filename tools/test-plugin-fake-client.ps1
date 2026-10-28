@@ -6,8 +6,8 @@
 # Usage:  powershell -ExecutionPolicy Bypass -File tools\test-plugin-fake-client.ps1 [-AOPlugins <its build dir>]
 #         [-AoVkPlugin <ao-vk.dll>] [-Keep]
 param(
-    [string]$AOPlugins = "C:\projekter\aorebirth-workspace\AOPlugins\build\linux-release",
-    [string]$AoVkPlugin = "C:\projekter\aorebirth-workspace\ao-vk\build\aoplugin\ao-vk.dll",
+    [string]$AOPlugins = "C:\projekter\aorebirth-workspace\AOPlugins\build\windows-release",
+    [string]$AoVkPlugin = "C:\projekter\aorebirth-workspace\ao-vk\build\windows-aoplugin\ao-vk.dll",
     [switch]$Keep
 )
 $ErrorActionPreference = "Stop"
@@ -25,8 +25,8 @@ if (Test-Path $dir) { Remove-Item $dir -Recurse -Force }
 $plugins = Join-Path $dir "AOPlugins"
 New-Item -ItemType Directory -Force $plugins, (Join-Path $dir "cd_image\gui\Default\OptionPanel"), (Join-Path $dir "cd_image\gui\Default\Views") | Out-Null
 Copy-Item (Join-Path $AOPlugins "version.dll") $dir
-foreach ($f in "AnarchyOnline.exe", "Utils.dll", "AFCM.dll") { Copy-Item (Join-Path $AOPlugins "tests\$f") $dir }
-Copy-Item (Join-Path $repo "build\linux-release\aoreloaded.dll") $plugins
+foreach ($f in "AnarchyOnline.exe", "Utils.dll", "AFCM.dll", "GUI.dll", "Awesomium.dll") { Copy-Item (Join-Path $AOPlugins "tests\$f") $dir }
+Copy-Item (Join-Path $repo "build\windows-release\aoreloaded.dll") $plugins
 if (Test-Path $AoVkPlugin) { Copy-Item $AoVkPlugin $plugins }
 Set-Content (Join-Path $dir "cd_image\gui\Default\OptionPanel\Root.xml") -NoNewline -Value "<root>`n  <ScrollView label=`"General`"><View/></ScrollView>`n</root>`n"
 Set-Content (Join-Path $dir "cd_image\gui\Default\Views\Skills.xml") -NoNewline -Value "<root/>`n"

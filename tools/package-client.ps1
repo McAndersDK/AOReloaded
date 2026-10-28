@@ -14,7 +14,6 @@
 
 param(
     [string]$OutputDir = "",
-    [string]$Distro = "Ubuntu-26.04",
     [switch]$NoBuild,
     [switch]$NoZip
 )
@@ -30,14 +29,13 @@ function Fail([string]$message) {
 if (-not $OutputDir) { $OutputDir = Join-Path $repo "dist" }
 $OutputDir = [System.IO.Path]::GetFullPath($OutputDir)
 $packageDir = Join-Path $OutputDir "aoreloaded-package"
-$plugin = Join-Path $repo "build\linux-release\aoreloaded.dll"
+$plugin = Join-Path $repo "build\windows-release\aoreloaded.dll"
 
 # 1. Build, unless requested not to.
 if (-not $NoBuild) {
-    $wslRepo = "/mnt/" + $repo.Substring(0, 1).ToLower() + ($repo.Substring(2) -replace '\\', '/')
-    Write-Host "package-client: building in WSL ($Distro)"
-    $buildScript = "cd '$wslRepo' && { [ -f build/linux-release/build.ninja ] || cmake --preset linux-release >/dev/null; } && cmake --build --preset linux-release --target aoreloaded"
-    & wsl -d $Distro -- bash -lc $buildScript
+    . (Join-Path $PSScriptRoot "windows-build.ps1")
+    Write-Host "package-client: building (windows-release)"
+    Invoke-WindowsBuild $repo -Target aoreloaded
     if ($LASTEXITCODE -ne 0) { Fail "the build failed" }
 }
 
