@@ -4,6 +4,8 @@ What changed in each AOReloaded release, newest first.
 
 ## Unreleased
 
+## 0.3.3 - 2026-10-29
+
 ### Fixed
 - On the classic 18.8.62 client (AO-Andersson, AORebirth's classic client) the cast bars, autorun, mouse-run, the
   number pad in the chat, Ctrl+click and Alt+click in the inventory, pinned items and the skills window's Favorites
