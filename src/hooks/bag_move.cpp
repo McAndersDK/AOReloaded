@@ -6,6 +6,7 @@
 #include "hooks/bag_move.h"
 #include "hooks/hook_engine.h"
 #include "ao/game_api.h"
+#include "ao/gui_build.h"
 #include "ao/types.h"
 #include "core/logging.h"
 
@@ -28,11 +29,10 @@ static_assert(sizeof(AOIdentity) == 8, "Identity_t is 8 bytes");
 // InventoryViewBase_c item-activation slot, connected to signal +0x2e0 of
 // the view's item list (fires on a plain click; Shift+click goes elsewhere).
 // __thiscall, RET 8: (void* unknown, MultiListViewItem_c* item).
-// GUI.dll RVA 0xca1e7; checked against these bytes before hooking since the
-// function isn't exported:
+// GuiBuild::itemActivated; checked against these bytes before hooking since
+// the function isn't exported:
 //   push ebp; mov ebp,esp; push ecx; push ecx; push esi; push edi;
 //   mov edi,[ebp+0xC]; mov esi,ecx
-constexpr uint32_t kItemActivatedRVA = 0xca1e7;
 constexpr uint8_t  kItemActivatedSig[] = {
     0x55, 0x8B, 0xEC, 0x51, 0x51, 0x56, 0x57, 0x8B, 0x7D, 0x0C, 0x8B, 0xF1};
 
@@ -223,11 +223,12 @@ bool InitBagMove() {
     void* closed = nullptr;
     ok &= Resolve(opened, "GUI.dll", "?SlotContainerOpened@InventoryGUIModule_c@@AAEXABVIdentity_t@@_N1@Z");
     ok &= Resolve(closed, "GUI.dll", "?SlotContainerClosed@InventoryGUIModule_c@@AAEXABVIdentity_t@@@Z");
-    if (!ok) return false;
+    const GuiBuild* addrs = GuiAddrs();
+    if (!ok || !addrs) return false;
 
-    void* slot = ResolveRVA("GUI.dll", kItemActivatedRVA);
+    void* slot = ResolveRVA("GUI.dll", addrs->itemActivated);
     if (!slot || std::memcmp(slot, kItemActivatedSig, sizeof(kItemActivatedSig)) != 0) {
-        Log("[bagmove] item slot at RVA 0x%X doesn't match (client update?)", kItemActivatedRVA);
+        Log("[bagmove] item slot at RVA 0x%X doesn't match (client update?)", addrs->itemActivated);
         return false;
     }
 

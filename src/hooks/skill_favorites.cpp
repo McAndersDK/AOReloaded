@@ -6,6 +6,7 @@
 #include "hooks/skill_favorites.h"
 #include "hooks/hook_engine.h"
 #include "ao/game_api.h"
+#include "ao/gui_build.h"
 #include "ao/types.h"
 #include "core/logging.h"
 #include "core/settings.h"
@@ -22,61 +23,59 @@ namespace aor {
 
 // ── GUI.dll functions (not exported) ───────────────────────────────────
 //
-// All hooked ones start with the MSVC SEH prolog
+// Addresses per client build in GuiAddrs() (ao/gui_build.h). All hooked
+// ones start with the MSVC SEH prolog
 //   mov eax, <EH table>   ; B8 + absolute address (relocated by the loader)
-//   call __EH_prolog      ; E8 + relative offset to GUI.dll RVA 0x1738a4
+//   call __EH_prolog      ; E8 + relative offset to GuiBuild::ehProlog
 // so the check compares both against their expected values.
 
 struct SehFunction {
-    uint32_t    rva;
-    uint32_t    ehTableRVA;
-    const char* name;
+    GuiSeh GuiBuild::* fn;
+    const char*        name;
 };
 
-constexpr uint32_t kEhPrologRVA = 0x1738a4;
-
 // SkillWindow::SkillWindow(), __thiscall, RET.
-constexpr SehFunction kWindowCtor  = {0xfc18e, 0x1998a8, "SkillWindow ctor"};
+constexpr SehFunction kWindowCtor  = {&GuiBuild::skillWindowCtor, "SkillWindow ctor"};
 // SkillWindow::InitGroups(), __thiscall, RET: fills the group table.
-constexpr SehFunction kInitGroups  = {0xfb596, 0x199683, "group table init"};
+constexpr SehFunction kInitGroups  = {&GuiBuild::initGroups, "group table init"};
 // SkillWindow::DistributeIP(std::vector<int>* changed), __thiscall, RET 4:
 // the "Suggested IP distribution" button's work.
-constexpr SehFunction kSuggestIP   = {0xfac49, 0x1993e3, "suggested IP"};
+constexpr SehFunction kSuggestIP   = {&GuiBuild::suggestIP, "suggested IP"};
 // SkillWindow::OnRowClicked(ButtonBase_c* row), __thiscall, RET 4: slot for
 // every StatRow's click signal (+0x148); shows the skill's details.
-constexpr SehFunction kRowClicked  = {0xf97a6, 0x199275, "row clicked"};
+constexpr SehFunction kRowClicked  = {&GuiBuild::rowClicked, "row clicked"};
 // StatRow::StatRow(Stat_e, bool full, bool disabled), __thiscall, RET 0xC.
-constexpr SehFunction kRowCtor     = {0xfe956, 0x199c56, "StatRow ctor"};
+constexpr SehFunction kRowCtor     = {&GuiBuild::rowCtor, "StatRow ctor"};
 // StatRow::~StatRow(), __thiscall, RET.
-constexpr SehFunction kRowDtor     = {0xff3f4, 0x199c84, "StatRow dtor"};
+constexpr SehFunction kRowDtor     = {&GuiBuild::rowDtor, "StatRow dtor"};
 // bool StatRow::ChangeDelta(int points), __thiscall, RET 4: adds to the
 // pending points, charges the IP difference through the row's +0x188
 // signal (backing off while it can't be paid), redraws.
-constexpr SehFunction kChangeDelta = {0xfde49, 0x19995d, "ChangeDelta"};
+constexpr SehFunction kChangeDelta = {&GuiBuild::changeDelta, "ChangeDelta"};
 // StatRow + / - button slots, __thiscall, RET. Pressed: +/-1 and start the
 // auto-repeat timer. Released: stop it, and with any qualifier key go to
 // the cap / to zero. Both fire the row's click signal.
-constexpr SehFunction kIncPressed  = {0xfe261, 0x18965e, "increase pressed"};
-constexpr SehFunction kIncReleased = {0xfe361, 0x18af75, "increase released"};
-constexpr SehFunction kDecPressed  = {0xfe0ca, 0x18965e, "decrease pressed"};
-constexpr SehFunction kDecReleased = {0xfe1b4, 0x18af75, "decrease released"};
+constexpr SehFunction kIncPressed  = {&GuiBuild::incPressed, "increase pressed"};
+constexpr SehFunction kIncReleased = {&GuiBuild::incReleased, "increase released"};
+constexpr SehFunction kDecPressed  = {&GuiBuild::decPressed, "decrease pressed"};
+constexpr SehFunction kDecReleased = {&GuiBuild::decReleased, "decrease released"};
 
 // std::vector helpers instantiated in GUI.dll, __thiscall, RET 4. `this` is
 // the vector (first, last, end, allocator). Checked by their first bytes.
 struct PlainFunction {
-    uint32_t    rva;
-    uint8_t     sig[8];
-    const char* name;
+    uint32_t GuiBuild::* fn;
+    uint8_t              sig[8];
+    const char*          name;
 };
 // vector<Group>::push_back(Group const&)
 constexpr PlainFunction kGroupPushBack = {
-    0xff7cc, {0x55, 0x8B, 0xEC, 0x56, 0x8B, 0xF1, 0x8B, 0x4E}, "vector<Group>::push_back"};
+    &GuiBuild::groupPushBack, {0x55, 0x8B, 0xEC, 0x56, 0x8B, 0xF1, 0x8B, 0x4E}, "vector<Group>::push_back"};
 // vector<vector<Stat_e>>::resize(size_t)
 constexpr PlainFunction kStatListsResize = {
-    0xff558, {0x55, 0x8B, 0xEC, 0x56, 0x8B, 0xF1, 0x8B, 0x4E}, "vector<vector<int>>::resize"};
+    &GuiBuild::statListsResize, {0x55, 0x8B, 0xEC, 0x56, 0x8B, 0xF1, 0x8B, 0x4E}, "vector<vector<int>>::resize"};
 // vector<Stat_e>::push_back(Stat_e const&)
 constexpr PlainFunction kStatPushBack = {
-    0x64bee, {0x55, 0x8B, 0xEC, 0x56, 0x8B, 0xF1, 0x8B, 0x46}, "vector<int>::push_back"};
+    &GuiBuild::statPushBack, {0x55, 0x8B, 0xEC, 0x56, 0x8B, 0xF1, 0x8B, 0x46}, "vector<int>::push_back"};
 
 using FnThis        = void(__thiscall*)(void* self);
 using FnCtorThis    = void*(__thiscall*)(void* self);
@@ -678,27 +677,28 @@ static bool Resolve(T& out, const char* module, const char* name) {
     return out != nullptr;
 }
 
-static void* CheckSeh(const SehFunction& fn) {
+static void* CheckSeh(const GuiBuild& addrs, const SehFunction& fn) {
     const auto gui = reinterpret_cast<uintptr_t>(GetModuleHandleA("GUI.dll"));
-    auto* code = static_cast<const uint8_t*>(ResolveRVA("GUI.dll", fn.rva));
+    const GuiSeh& seh = addrs.*fn.fn;
+    auto* code = static_cast<const uint8_t*>(ResolveRVA("GUI.dll", seh.rva));
     uint32_t table = 0;
     int32_t  rel   = 0;
     if (code) {
         std::memcpy(&table, code + 1, 4);
         std::memcpy(&rel, code + 6, 4);
     }
-    if (!code || code[0] != 0xB8 || table != gui + fn.ehTableRVA || code[5] != 0xE8 ||
-        reinterpret_cast<uintptr_t>(code) + 10 + rel != gui + kEhPrologRVA) {
-        Log("[skillfav] %s at RVA 0x%X doesn't match (client update?)", fn.name, fn.rva);
+    if (!code || code[0] != 0xB8 || table != gui + seh.ehTable || code[5] != 0xE8 ||
+        reinterpret_cast<uintptr_t>(code) + 10 + rel != gui + addrs.ehProlog) {
+        Log("[skillfav] %s at RVA 0x%X doesn't match (client update?)", fn.name, seh.rva);
         return nullptr;
     }
     return const_cast<uint8_t*>(code);
 }
 
-static void* CheckPlain(const PlainFunction& fn) {
-    void* code = ResolveRVA("GUI.dll", fn.rva);
+static void* CheckPlain(const GuiBuild& addrs, const PlainFunction& fn) {
+    void* code = ResolveRVA("GUI.dll", addrs.*fn.fn);
     if (!code || std::memcmp(code, fn.sig, sizeof(fn.sig)) != 0) {
-        Log("[skillfav] %s at RVA 0x%X doesn't match (client update?)", fn.name, fn.rva);
+        Log("[skillfav] %s at RVA 0x%X doesn't match (client update?)", fn.name, addrs.*fn.fn);
         return nullptr;
     }
     return code;
@@ -730,7 +730,8 @@ bool InitSkillFavorites() {
     ok &= Resolve(g_stringDtor,    "Utils.dll", "??1String@@QAE@XZ");
     ok &= Resolve(g_n3GetInstance, "Interfaces.dll", "?GetInstance@N3InterfaceModule_t@@SAPAV1@XZ");
     ok &= Resolve(g_getClientInst, "Interfaces.dll", "?GetClientInst@N3InterfaceModule_t@@QBEIXZ");
-    if (!ok) return false;
+    const GuiBuild* addrs = GuiAddrs();
+    if (!ok || !addrs) return false;
 
     if (!BuildFavoritesPath()) {
         Log("[skillfav] can't build AOReloadedSkills.ini path");
@@ -738,20 +739,20 @@ bool InitSkillFavorites() {
     }
 
     // Check everything before hooking anything: the hooks only work together.
-    void* windowCtor  = CheckSeh(kWindowCtor);
-    void* initGroups  = CheckSeh(kInitGroups);
-    void* suggestIP   = CheckSeh(kSuggestIP);
-    void* rowClicked  = CheckSeh(kRowClicked);
-    void* rowCtor     = CheckSeh(kRowCtor);
-    void* rowDtor     = CheckSeh(kRowDtor);
-    void* changeDelta = CheckSeh(kChangeDelta);
-    void* incPressed  = CheckSeh(kIncPressed);
-    void* incReleased = CheckSeh(kIncReleased);
-    void* decPressed  = CheckSeh(kDecPressed);
-    void* decReleased = CheckSeh(kDecReleased);
-    g_groupPushBack   = reinterpret_cast<FnPushBack>(CheckPlain(kGroupPushBack));
-    g_statListsResize = reinterpret_cast<FnResize>(CheckPlain(kStatListsResize));
-    g_statPushBack    = reinterpret_cast<FnPushBack>(CheckPlain(kStatPushBack));
+    void* windowCtor  = CheckSeh(*addrs, kWindowCtor);
+    void* initGroups  = CheckSeh(*addrs, kInitGroups);
+    void* suggestIP   = CheckSeh(*addrs, kSuggestIP);
+    void* rowClicked  = CheckSeh(*addrs, kRowClicked);
+    void* rowCtor     = CheckSeh(*addrs, kRowCtor);
+    void* rowDtor     = CheckSeh(*addrs, kRowDtor);
+    void* changeDelta = CheckSeh(*addrs, kChangeDelta);
+    void* incPressed  = CheckSeh(*addrs, kIncPressed);
+    void* incReleased = CheckSeh(*addrs, kIncReleased);
+    void* decPressed  = CheckSeh(*addrs, kDecPressed);
+    void* decReleased = CheckSeh(*addrs, kDecReleased);
+    g_groupPushBack   = reinterpret_cast<FnPushBack>(CheckPlain(*addrs, kGroupPushBack));
+    g_statListsResize = reinterpret_cast<FnResize>(CheckPlain(*addrs, kStatListsResize));
+    g_statPushBack    = reinterpret_cast<FnPushBack>(CheckPlain(*addrs, kStatPushBack));
     if (!windowCtor || !initGroups || !suggestIP || !rowClicked || !rowCtor || !rowDtor ||
         !changeDelta || !incPressed || !incReleased || !decPressed || !decReleased ||
         !g_groupPushBack || !g_statListsResize || !g_statPushBack)

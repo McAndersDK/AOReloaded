@@ -107,6 +107,15 @@ Mangled: `?N3Msg_MovementChanged@n3EngineClientAnarchy_t@@QAEXW4MovementAction_e
 
 The RTTI list of `*TransitionAction_t` classes exists at `.rdata 101bf7ec+` but its order does NOT correspond to the enum values; the true mapping above was derived by observation.
 
+## GUI.dll builds
+
+The GUI.dll RVAs in this file are Project Rubi-Ka's May 2019 build (TimeDateStamp `0x5CD32BEA`,
+`C:\Users\anders\DownloadsPRK\client\GUI.dll`). The classic 18.8.62 client (AO-Andersson) has the June 2023
+build (`0x647A09DA`): same sources and class layouts, the code moved. The code takes every GUI.dll address from
+`gui_build.cpp` (one row per build, picked by the timestamp); add a row there for a new build. The 2023 row was
+found by matching each 2019 function's code (relocations and branch offsets masked) in the 2023 file, and is
+checked against both files: exports, the startup byte checks, and AOPlugins' accepted prologues.
+
 ## GUI.dll — Signal/Slot System and ActionViewMouseHandler_c
 
 ### Signal/Slot Architecture

@@ -7,6 +7,7 @@
 #include "hooks/hook_engine.h"
 #include "hooks/inventory_pins.h"
 #include "ao/game_api.h"
+#include "ao/gui_build.h"
 #include "ao/types.h"
 #include "core/logging.h"
 
@@ -33,14 +34,11 @@ static bool SameIdentity(const AOIdentity& a, const AOIdentity& b) {
 // MultiListView_c signal +0x134 (fired by MultiListView_c::MouseUp) to it.
 // __thiscall, RET 0x10: (void* unknown, MultiListViewItem_c* item,
 // int button, Message* drag) — drag is non-null when an item was dropped.
-// GUI.dll RVA 0x40a17, not exported. It starts with an SEH prolog,
+// GuiBuild::listMouseUp, not exported. It starts with an SEH prolog,
 //   mov eax, <EH table>   ; B8 + absolute address (relocated by the loader)
 //   call __EH_prolog      ; E8 + relative offset
 //   sub esp, ...          ; 83 EC
-// so the check compares the address against its relocated value.
-constexpr uint32_t kListMouseUpRVA   = 0x40a17;
-constexpr uint32_t kListMouseUpEHRVA = 0x17fe7c;
-constexpr uint8_t  kListMouseUpTail[] = {0xE8, 0x83, 0x2E, 0x13, 0x00, 0x83, 0xEC};
+// so the check compares both addresses against their relocated values.
 
 using FnListMouseUp = void(__thiscall*)(void* list, void* unknown, void* item,
                                         int button, void* drag);
@@ -256,12 +254,15 @@ static bool Hook(void* target, void* detour, T& orig, const char* what) {
     return true;
 }
 
-static bool ListMouseUpMatches(const uint8_t* code) {
+static bool ListMouseUpMatches(const GuiBuild& addrs, const uint8_t* code) {
     const auto base = reinterpret_cast<uintptr_t>(GetModuleHandleA("GUI.dll"));
     uint32_t imm = 0;
+    int32_t  rel = 0;
     std::memcpy(&imm, code + 1, 4);
-    return code[0] == 0xB8 && imm == base + kListMouseUpEHRVA &&
-           std::memcmp(code + 5, kListMouseUpTail, sizeof(kListMouseUpTail)) == 0;
+    std::memcpy(&rel, code + 6, 4);
+    return code[0] == 0xB8 && imm == base + addrs.listMouseUp.ehTable &&
+           code[5] == 0xE8 && reinterpret_cast<uintptr_t>(code) + 10 + rel == base + addrs.ehProlog &&
+           code[10] == 0x83 && code[11] == 0xEC;
 }
 
 bool InitAltSelect() {
@@ -285,11 +286,12 @@ bool InitAltSelect() {
                   "?N3Msg_TradeRemoveItem@N3InterfaceModule_t@@QBEXABVIdentity_t@@0@Z");
     ok &= Resolve(moveHome, "Interfaces.dll",
                   "?MoveItemToInventory@N3InterfaceModule_t@@QBE_NABVIdentity_t@@@Z");
-    if (!ok) return false;
+    const GuiBuild* addrs = GuiAddrs();
+    if (!ok || !addrs) return false;
 
-    void* mouseUp = ResolveRVA("GUI.dll", kListMouseUpRVA);
-    if (!mouseUp || !ListMouseUpMatches(static_cast<const uint8_t*>(mouseUp))) {
-        Log("[altsel] list mouse-up at RVA 0x%X doesn't match (client update?)", kListMouseUpRVA);
+    void* mouseUp = ResolveRVA("GUI.dll", addrs->listMouseUp.rva);
+    if (!mouseUp || !ListMouseUpMatches(*addrs, static_cast<const uint8_t*>(mouseUp))) {
+        Log("[altsel] list mouse-up at RVA 0x%X doesn't match (client update?)", addrs->listMouseUp.rva);
         return false;
     }
 

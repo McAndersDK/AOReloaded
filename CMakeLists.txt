@@ -36,6 +36,7 @@ add_library(AOReloaded SHARED
     src/core/laa_patch.cpp
     src/core/settings.cpp
     src/ao/game_api.cpp
+    src/ao/gui_build.cpp
     src/ao/dvalue_dump.cpp
     src/hooks/hook_engine.cpp
     src/hooks/input_handler.cpp
@@ -63,6 +64,7 @@ add_library(aoreloaded SHARED
     src/plugin/plugin_core.cpp
     src/core/laa_patch.cpp
     src/ao/game_api.cpp
+    src/ao/gui_build.cpp
     src/hooks/input_handler.cpp
     src/hooks/camera_hook.cpp
     src/hooks/numpad_fix.cpp

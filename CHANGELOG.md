@@ -4,6 +4,11 @@ What changed in each AOReloaded release, newest first.
 
 ## Unreleased
 
+### Fixed
+- On the classic 18.8.62 client (AO-Andersson, AORebirth's classic client) the cast bars, autorun, mouse-run, the
+  number pad in the chat, Ctrl+click and Alt+click in the inventory, pinned items and the skills window's Favorites
+  were switched off: they only knew Project Rubi-Ka's client. They now work on both.
+
 ## 0.3.1 - 2026-10-27
 
 ### Changed

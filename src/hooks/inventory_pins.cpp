@@ -6,6 +6,7 @@
 #include "hooks/inventory_pins.h"
 #include "hooks/hook_engine.h"
 #include "ao/game_api.h"
+#include "ao/gui_build.h"
 #include "ao/types.h"
 #include "core/logging.h"
 
@@ -34,23 +35,20 @@ static bool SameIdentity(const AOIdentity& a, const AOIdentity& b) {
 // Slot 1 is Compare(MultiListViewItem_c const* other, int column), __thiscall,
 // RET 8: column 0 = grid position, 1 = name, 2..16 = ints at +0x70+col*4.
 // Ascending order puts `this` first when it returns < 0, descending when > 0.
-constexpr uint32_t kItemVtableRVA  = 0x1b0128;
-constexpr uint32_t kItemCompareRVA = 0x3cc19;
+// GuiBuild::itemVtable, GuiBuild::itemCompare.
 constexpr char     kItemRttiName[] = ".?AVInventoryListViewItem_c@@";
 
 using FnCompare = int(__thiscall*)(void* item, void* other, int column);
 static FnCompare g_origCompare = nullptr;
 static void*     g_itemVtable  = nullptr;
 
-// ItemListViewBase_c's MouseDown override, GUI.dll RVA 0x40f22, not exported.
+// ItemListViewBase_c's MouseDown override (GuiBuild::splitMouseDown), not exported.
 // __thiscall, RET 0xC: (Point const&, int button, int flags). On button 1
 // over a stack (count > 1) with Ctrl held it starts the stock split (picks up
 // one, drag sideways for more); otherwise it calls MultiListView_c::MouseDown.
 // Ctrl+Alt is the pin gesture, so with Alt held too it goes straight to the
 // base class instead. Checked before hooking: the frame prologue, then
 // push 0; push <RTTI descriptor> (an absolute address, relocated).
-constexpr uint32_t kSplitMouseDownRVA  = 0x40f22;
-constexpr uint32_t kSplitMouseDownRtti = 0x264934;
 constexpr uint8_t  kSplitMouseDownSig[] = {
     0x55, 0x8B, 0xEC, 0x51, 0x51, 0x53, 0x56, 0x57, 0x6A, 0x00, 0x68};
 
@@ -58,13 +56,12 @@ using FnMouseDown = void(__thiscall*)(void* list, const void* point, int button,
 static FnMouseDown g_origSplitMouseDown = nullptr;
 static FnMouseDown g_baseMouseDown      = nullptr;  // MultiListView_c::MouseDown
 
-// InventoryListViewItem_c::GetName (GUI.dll RVA 0x3ca3d, not exported):
+// InventoryListViewItem_c::GetName (GuiBuild::itemGetName, not exported):
 // String GetName() const, __thiscall returning through a hidden pointer,
 // RET 4 — a copy of the String at +0x4c. Only the list row update calls it,
 // to fill the row's own copy of the name (column 1), so prefixing the result
 // marks pinned rows without touching the name that sorting compares.
 //   push ebp; mov ebp,esp; push ecx; and dword [ebp-4],0; add ecx,0x4c; push ecx
-constexpr uint32_t kItemGetNameRVA = 0x3ca3d;
 constexpr uint8_t  kItemGetNameSig[] = {
     0x55, 0x8B, 0xEC, 0x51, 0x83, 0x65, 0xFC, 0x00, 0x83, 0xC1, 0x4C, 0x51};
 constexpr char     kPinMarker[] = "* ";
@@ -322,18 +319,19 @@ bool InitInventoryPins() {
     ok &= Resolve(g_variantIdentity, "Utils.dll", "??BVariant@@QBE?AVIdentity_t@@XZ");
     ok &= Resolve(g_n3GetInstance, "Interfaces.dll", "?GetInstance@N3InterfaceModule_t@@SAPAV1@XZ");
     ok &= Resolve(g_getClientInst, "Interfaces.dll", "?GetClientInst@N3InterfaceModule_t@@QBEIXZ");
-    if (!ok) return false;
+    const GuiBuild* addrs = GuiAddrs();
+    if (!ok || !addrs) return false;
 
     if (!BuildPinsPath()) {
         Log("[pins] can't build AOReloadedPins.ini path");
         return false;
     }
 
-    auto** vtable = static_cast<void**>(ResolveRVA("GUI.dll", kItemVtableRVA));
-    void* compare = ResolveRVA("GUI.dll", kItemCompareRVA);
+    auto** vtable = static_cast<void**>(ResolveRVA("GUI.dll", addrs->itemVtable));
+    void* compare = ResolveRVA("GUI.dll", addrs->itemCompare);
     if (!vtable || !compare || vtable[1] != compare || !VtableIsClass(vtable, kItemRttiName)) {
         Log("[pins] InventoryListViewItem_c vtable at RVA 0x%X doesn't match (client update?)",
-            kItemVtableRVA);
+            addrs->itemVtable);
         return false;
     }
 
@@ -354,24 +352,24 @@ bool InitInventoryPins() {
     // Without this, Ctrl+Alt+click on a stack starts a split instead of pinning.
     // InstallHook publishes the original before patching, so the detour never
     // sees it null even though the game thread is already running.
-    auto* split = static_cast<const uint8_t*>(ResolveRVA("GUI.dll", kSplitMouseDownRVA));
+    auto* split = static_cast<const uint8_t*>(ResolveRVA("GUI.dll", addrs->splitMouseDown));
     const auto gui = reinterpret_cast<uintptr_t>(GetModuleHandleA("GUI.dll"));
     uint32_t rtti = 0;
     if (split) std::memcpy(&rtti, split + sizeof(kSplitMouseDownSig), 4);
     if (!split || std::memcmp(split, kSplitMouseDownSig, sizeof(kSplitMouseDownSig)) != 0 ||
-        rtti != gui + kSplitMouseDownRtti) {
+        rtti != gui + addrs->splitMouseDownRtti) {
         Log("[pins] split mouse-down at RVA 0x%X doesn't match (client update?) — "
-            "stacks can't be pinned", kSplitMouseDownRVA);
+            "stacks can't be pinned", addrs->splitMouseDown);
     } else if (!InstallHook(const_cast<uint8_t*>(split),
                             reinterpret_cast<void*>(&SplitMouseDownDetour),
                             reinterpret_cast<void**>(&g_origSplitMouseDown))) {
         Log("[pins] split mouse-down hook failed — stacks can't be pinned");
     }
 
-    void* getName = ResolveRVA("GUI.dll", kItemGetNameRVA);
+    void* getName = ResolveRVA("GUI.dll", addrs->itemGetName);
     if (!getName || std::memcmp(getName, kItemGetNameSig, sizeof(kItemGetNameSig)) != 0) {
         Log("[pins] GetName at RVA 0x%X doesn't match (client update?) — no pin marker",
-            kItemGetNameRVA);
+            addrs->itemGetName);
     } else if (!InstallHook(getName, reinterpret_cast<void*>(&GetNameDetour),
                             reinterpret_cast<void**>(&g_origGetName))) {
         Log("[pins] GetName hook failed — no pin marker");
